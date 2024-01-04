@@ -2,242 +2,213 @@ package org.example;
 
 import org.apache.ibatis.jdbc.ScriptRunner;
 
+import java.io.File;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.util.ArrayList;
+import java.util.Scanner;
 
 public class DatabasePopulateService {
+    private static final String CLIENT_FILENAME="src/main/resources/data/clients.txt";
+    private static final String WORKER_FILENAME = "src/main/resources/data/workers.txt";
+    private static final String PROJECT_FILENAME = "src/main/resources/data/project.txt";
+    private static final String PROJECT_WORKER_FILENAME = "src/main/resources/data/project_worker.txt";
+
     public static void main(String[] args) {
+        ArrayList<Client> clients = readClients(CLIENT_FILENAME);
+        ArrayList<Worker> workers = readWorkers(WORKER_FILENAME);
+        ArrayList<Project> projects = readProjects(PROJECT_FILENAME);
+        ArrayList< Pair<Project, Worker>> projectWorkers = readProjectWorkers(PROJECT_WORKER_FILENAME, projects, workers) ;
+        for(Client client : clients){
+            createClient(client);
+        }
+
+        for(Worker worker: workers){
+            createWorker(worker);
+        }
+
+        for(Project project: projects){
+            createProject(project);
+        }
+        for(Pair<Project,Worker> pair : projectWorkers){
+            createProjectWorker(pair.getKey(), pair.getValue());
+        }
+        System.out.println("Database is filled");
+    }
+
+    public static ArrayList<Client> readClients(String filename) {
+        ArrayList<Client> clients = new ArrayList<>();
+        
+        try {
+            Scanner scanner = new Scanner(new File(filename));
+            while(scanner.hasNext()){
+                int id = scanner.nextInt();
+                String name = scanner.next();
+                clients.add(new Client(id, name));
+            }
+            scanner.close();
+
+        }
+        catch (Exception ex){
+            System.out.println(ex.getMessage());
+        }
+        return clients;
+    }
+
+    public static ArrayList<Worker> readWorkers(String filename) {
+        ArrayList<Worker> workers = new ArrayList<>();
+
+        try {
+            Scanner scanner = new Scanner(new File(filename));
+            while(scanner.hasNext()){
+                int id = scanner.nextInt();
+                String name = scanner.next();
+                Date birthday = Date.valueOf(scanner.next());
+                Experience level = Experience.valueOf(scanner.next());
+                int salary = scanner.nextInt();
+                workers.add(new Worker(id, name, birthday, level, salary));
+            }
+            scanner.close();
+
+        }
+        catch (Exception ex){
+            System.out.println(ex.getMessage());
+        }
+        return workers;
+    }
+
+    public static ArrayList<Project> readProjects(String filename) {
+        ArrayList<Project> projects = new ArrayList<>();
+
+        try {
+            Scanner scanner = new Scanner(new File(filename));
+            while(scanner.hasNext()){
+                int id = scanner.nextInt();
+                int clientId = scanner.nextInt();
+                Date startDate = Date.valueOf(scanner.next());
+                Date finishDate = Date.valueOf(scanner.next());
+                projects.add(new Project(id, clientId, startDate, finishDate));
+            }
+            scanner.close();
+
+        }
+        catch (Exception ex){
+            System.out.println(ex.getMessage());
+        }
+        return projects;
+    }
+    
+    public static ArrayList< Pair<Project, Worker>> readProjectWorkers(String filename, ArrayList<Project> projects, ArrayList<Worker> workers){
+        ArrayList< Pair<Project, Worker>> projectWorkers= new ArrayList<>();
+        try {
+            Scanner scanner = new Scanner(new File(filename));
+            while(scanner.hasNext()){
+                int projectId = scanner.nextInt();
+                int workerId = scanner.nextInt();
+                Project project = getProjectById(projects, projectId);
+                Worker worker = getWorkerById(workers, workerId);
+                if(worker!=null && project!=null)
+                    projectWorkers.add(new Pair<Project, Worker>(project, worker));
+            }
+            scanner.close();
+
+        }
+        catch (Exception ex){
+            System.out.println(ex.getMessage());
+        }
+        return projectWorkers;
+    }
+    public static Worker getWorkerById(ArrayList<Worker> workers, int id){
+        for(Worker worker: workers){
+            if(worker.getId() == id){
+                return worker;
+            }
+        }
+        return null;
+    }
+
+    public static Project getProjectById(ArrayList<Project> projects, int id){
+        for(Project project: projects){
+            if(project.getId() == id){
+                return project;
+            }
+        }
+        return null;
+    }
+
+    public static void createWorker(Worker worker){
         Database db = Database.getInstance();
         Connection conn = db.getConnection();
 
         try {
-            String query = "INSERT INTO client VALUES(?, ?),(?,?),(?,?),(?,?),(?,?);";
+            String query = "INSERT INTO worker VALUES(?,?,?,?,?);";
+            PreparedStatement preparedStatement = conn.prepareStatement(query);
+
+            preparedStatement.setInt(1,worker.getId());
+            preparedStatement.setString(2, worker.getName());
+            preparedStatement.setDate(3, worker.getBirthday());
+            preparedStatement.setString(4,worker.getLevel().toString());
+            preparedStatement.setInt(5,worker.getSalary());
+
+            preparedStatement.execute();
+        }
+        catch(Exception ex){
+            System.out.println(ex.getMessage());
+        }
+    }
+
+    public static void createClient(Client client){
+        Database db = Database.getInstance();
+        Connection conn = db.getConnection();
+
+        try {
+            String query = "INSERT INTO client VALUES(?, ?);";
             PreparedStatement queryStatement = conn.prepareStatement(query);
 
-            queryStatement.setInt(1, 1);
-            queryStatement.setString(2,"OLEG");
-            queryStatement.setInt(3, 2);
-            queryStatement.setString(4,"MIRA");
-            queryStatement.setInt(5, 3);
-            queryStatement.setString(6,"TIMUR");
-            queryStatement.setInt(7, 4);
-            queryStatement.setString(8,"PAVEL");
-            queryStatement.setInt(9, 5);
-            queryStatement.setString(10,"LUNA");
+            queryStatement.setInt(1, client.getId());
+            queryStatement.setString(2, client.getName());
+
             queryStatement.execute();
+        }
+        catch(Exception ex){
+            System.out.println(ex.getMessage());
+        }
+    }
 
-            String query2 = "INSERT INTO worker\n" +
-                    "VALUES(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?),\n" +
-                     "(?,?,?,?, ?),\n" +
-                    "(?,?,?,?, ?);";
-            PreparedStatement st2 = conn.prepareStatement(query2);
+    public static void createProject(Project project){
+        Database db = Database.getInstance();
+        Connection conn = db.getConnection();
 
-            st2.setInt(1,1);
-            st2.setString(2, "GREGORY");
-            st2.setDate(3, Date.valueOf("1968-01-01"));
-            st2.setString(4,"SENIOR");
-            st2.setInt(5,5000);
+        try {
+            String query = "INSERT INTO project VALUES (?,?,?,?);";
 
-            st2.setInt(6,2);
-            st2.setString(7, "KIRILL");
-            st2.setDate(8, Date.valueOf("1998-01-01"));
-            st2.setString(9,"MIDDLE");
-            st2.setInt(10,3500);
+            PreparedStatement preparedStatement=conn.prepareStatement(query);
+            preparedStatement.setInt(1,project.getId());
+            preparedStatement.setInt(2,project.getClientId());
+            preparedStatement.setDate(3,project.getStartDate());
+            preparedStatement.setDate(4,project.getFinishDate());
+            preparedStatement.execute();
+        }
+        catch(Exception ex){
+            System.out.println(ex.getMessage());
+        }
+    }
+    public static void createProjectWorker(Project project, Worker worker){
+        Database db = Database.getInstance();
+        Connection conn = db.getConnection();
 
-            st2.setInt(11,3);
-            st2.setString(12, "MAX");
-            st2.setDate(13, Date.valueOf("2004-01-01"));
-            st2.setString(14,"JUNIOR");
-            st2.setInt(15,2000);
+        try {
+            String query="INSERT INTO project_worker VALUES(?,?);";
 
-            st2.setInt(16,4);
-            st2.setString(17, "DAN");
-            st2.setDate(18, Date.valueOf("1999-01-01"));
-            st2.setString(19,"JUNIOR");
-            st2.setInt(20,2100);
-
-            st2.setInt(21,5);
-            st2.setString(22, "IVAN");
-            st2.setDate(23, Date.valueOf("2008-01-01"));
-            st2.setString(24,"TRAINEE");
-            st2.setInt(25,1000);
-
-            st2.setInt(26,6);
-            st2.setString(27, "NATASHA");
-            st2.setDate(28, Date.valueOf("1997-01-01"));
-            st2.setString(29,"JUNIOR");
-            st2.setInt(30,1900);
-
-            st2.setInt(31,7);
-            st2.setString(32, "EGOR");
-            st2.setDate(33, Date.valueOf("1996-01-01"));
-            st2.setString(34,"TRAINEE");
-            st2.setInt(35,100);
-
-            st2.setInt(36,9);
-            st2.setString(37, "YURIY");
-            st2.setDate(38, Date.valueOf("1990-01-01"));
-            st2.setString(39,"MIDDLE");
-            st2.setInt(40,3700);
-
-            st2.setInt(41,8);
-            st2.setString(42, "ANN");
-            st2.setDate(43, Date.valueOf("1992-01-01"));
-            st2.setString(44,"MIDDLE");
-            st2.setInt(45,3600);
-
-            st2.setInt(46,10);
-            st2.setString(47, "MAX");
-            st2.setDate(48, Date.valueOf("1999-01-01"));
-            st2.setString(49,"MIDDLE");
-            st2.setInt(50,3600);
-            st2.execute();
-
-            String query3 = "INSERT INTO project\n" +
-                    "VALUES (?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?),\n"+
-                    "(?,?,?,?);";
-            PreparedStatement st3=conn.prepareStatement(query3);
-            st3.setInt(1,1);
-            st3.setInt(2,2);
-            st3.setDate(3,Date.valueOf("2022-01-01"));
-            st3.setDate(4,Date.valueOf("2023-01-01"));
-
-            st3.setInt(5,2);
-            st3.setInt(6,3);
-            st3.setDate(7,Date.valueOf("2021-01-01"));
-            st3.setDate(8,Date.valueOf("2022-01-01"));
-
-            st3.setInt(9,3);
-            st3.setInt(10,1);
-            st3.setDate(11,Date.valueOf("2020-03-29"));
-            st3.setDate(12,Date.valueOf("2021-01-01"));
-
-            st3.setInt(13,4);
-            st3.setInt(14,4);
-            st3.setDate(15,Date.valueOf("2020-02-03"));
-            st3.setDate(16,Date.valueOf("2020-03-10"));
-
-            st3.setInt(17,5);
-            st3.setInt(18,5);
-            st3.setDate(19,Date.valueOf("2022-01-09"));
-            st3.setDate(20,Date.valueOf("2022-03-10"));
-
-            st3.setInt(21,6);
-            st3.setInt(22,2);
-            st3.setDate(23,Date.valueOf("2022-02-09"));
-            st3.setDate(24,Date.valueOf("2022-03-12"));
-
-            st3.setInt(25,7);
-            st3.setInt(26,3);
-            st3.setDate(27,Date.valueOf("2023-01-01"));
-            st3.setDate(28,Date.valueOf("2023-04-04"));
-
-            st3.setInt(29,8);
-            st3.setInt(30,1);
-            st3.setDate(31,Date.valueOf("2023-03-03"));
-            st3.setDate(32,Date.valueOf("2023-06-06"));
-
-            st3.setInt(33,9);
-            st3.setInt(34,4);
-            st3.setDate(35,Date.valueOf("2023-09-09"));
-            st3.setDate(36,Date.valueOf("2024-03-02"));
-
-            st3.setInt(37,10);
-            st3.setInt(38,5);
-            st3.setDate(39,Date.valueOf("2022-10-10"));
-            st3.setDate(40,Date.valueOf("2023-03-01"));
-
-            st3.execute();
-            String query4="INSERT INTO project_worker\n" +
-                    "VALUES(?,?),(?,?),(?,?),(?,?),(?,?)," +
-                    "(?,?),(?,?),(?,?),(?,?),(?,?)," +
-                    "(?,?),(?,?),(?,?),(?,?),(?,?)," +
-                    "(?,?),(?,?),(?,?),(?,?),(?,?)," +
-                    "(?,?),(?,?),(?,?),(?,?),(?,?)," +
-                    "(?,?),(?,?),(?,?);";
-
-            PreparedStatement st4 = conn.prepareStatement(query4);
-            st4.setInt(1,1);
-            st4.setInt(2,10);
-            st4.setInt(3,1);
-            st4.setInt(4,3);
-            st4.setInt(5,1);
-            st4.setInt(6,2);
-            st4.setInt(7,2);
-            st4.setInt(8,3);
-            st4.setInt(9,2);
-            st4.setInt(10,4);
-            st4.setInt(11,2);
-            st4.setInt(12,1);
-            st4.setInt(13,3);
-            st4.setInt(14,1);
-            st4.setInt(15,3);
-            st4.setInt(16,5);
-            st4.setInt(17,3);
-            st4.setInt(18,7);
-            st4.setInt(19,3);
-            st4.setInt(20,10);
-
-
-
-            st4.setInt(21,4);
-            st4.setInt(22,2);
-            st4.setInt(23,5);
-            st4.setInt(24,1);
-            st4.setInt(25,5);
-            st4.setInt(26,4);
-            st4.setInt(27,6);
-            st4.setInt(28,7);
-            st4.setInt(29,6);
-            st4.setInt(30,8);
-            st4.setInt(31,6);
-            st4.setInt(32,9);
-            st4.setInt(33,6);
-            st4.setInt(34,2);
-            st4.setInt(35,7);
-            st4.setInt(36,1);
-            st4.setInt(37,7);
-            st4.setInt(38,5);
-            st4.setInt(39,7);
-            st4.setInt(40,6);
-            st4.setInt(41,8);
-            st4.setInt(42,1);
-
-            st4.setInt(43,8);
-            st4.setInt(44,8);
-            st4.setInt(45,8);
-            st4.setInt(46,9);
-            st4.setInt(47,9);
-            st4.setInt(48,9);
-            st4.setInt(49,9);
-            st4.setInt(50,10);
-            st4.setInt(51,10);
-            st4.setInt(52,5);
-            st4.setInt(53,10);
-            st4.setInt(54,7);
-            st4.setInt(55,10);
-            st4.setInt(56,6);
-
-            st4.execute();
-            System.out.println("Database is filled");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            PreparedStatement preparedStatement = conn.prepareStatement(query);
+            preparedStatement.setInt(1,project.getId());
+            preparedStatement.setInt(2,worker.getId());
+            preparedStatement.execute();
+        }
+        catch(Exception ex){
+            System.out.println(ex.getMessage());
         }
     }
 }
